@@ -1,0 +1,45 @@
+# Data / caches / large preprocessing artefacts
+nuscenes_data/
+pgp_*_preprocessed*/
+pgp_*_output*/
+test_*_results/
+DSVT/output/
+DSVT/data/
+results_nusc*.json
+*.pickle
+
+# Python build artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.so
+.Python
+*.egg-info/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# LaTeX build artefacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# Secrets — never commit
+*_keys.txt
+*_tokens.txt
+*api_keys*
+*.pem
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db

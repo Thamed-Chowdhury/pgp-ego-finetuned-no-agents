@@ -1,0 +1,112 @@
+# Stage 2 (no-agents + ranking variant): fine-tune the Stage 1 no-agents
+# ranked PGP checkpoint on the ego-vehicle dataset.
+#
+# Stage 1 (configs/pgp_gatx2_lvm_no_agents.yml) was trained on the standard
+# nuScenes target-agent prediction split (NuScenesGraphs, 40k samples,
+# non-ego targets). Stage 2 swaps to input_representation='ego_graphs' so the
+# target agent is the ego vehicle (NuScenesEgoGraphs, ~1.8k samples). Same
+# encoder + aggregator + lvm_ranked decoder; same agent-zeroing intervention;
+# same primary objective (ranking_xent) plus a small min_ade_k for geometric
+# regularization.
+dataset: 'nuScenes'
+version: 'v1.0-trainval'
+agent_setting: 'single_agent'
+input_representation: 'ego_graphs'
+
+train_set_args: &ds_args
+  split: 'train'
+  t_h: 2
+  t_f: 6
+  map_extent: [ -50, 50, -20, 80 ]
+  polyline_resolution: 1
+  polyline_length: 20
+  traversal_horizon: 15
+  random_flips: True
+
+val_set_args:
+  <<: *ds_args
+  split: 'train_val'
+  random_flips: False
+
+test_set_args:
+  <<: *ds_args
+  split: 'val'
+  random_flips: False
+
+batch_size: 16
+num_workers: 2
+
+encoder_type: 'pgp_encoder'
+encoder_args:
+  target_agent_feat_size: 5
+  target_agent_emb_size: 16
+  target_agent_enc_size: 32
+  node_feat_size: 6
+  node_emb_size: 16
+  node_enc_size: 32
+  nbr_feat_size: 5
+  nbr_emb_size: 16
+  nbr_enc_size: 32
+  num_gat_layers: 2
+
+aggregator_type: 'pgp'
+aggregator_args:
+  pre_train: False
+  target_agent_enc_size: 32
+  node_enc_size: 32
+  pi_h1_size: 32
+  pi_h2_size: 32
+  horizon: 15
+  num_samples: 1000
+  emb_size: 128
+  num_heads: 32
+
+decoder_type: 'lvm_ranked_richctx'
+decoder_args:
+  num_samples: 1000
+  op_len: 12
+  hidden_size: 128
+  encoding_size: 160
+  agg_type: 'sample_specific'
+  lv_dim: 5
+  num_clusters: 10
+  conf_hidden_size: 256
+  target_agent_enc_size: 32
+
+# Halved LR for fine-tuning (matches the existing pgp_ego_gatx2_lvm_ranked_stage2
+# template; original Stage 1 LR was 1e-3).
+optim_args:
+  lr: 0.0005
+  scheduler_step: 10
+  scheduler_gamma: 0.5
+
+losses: ['ranking_xent', 'min_ade_k', 'pi_bc']
+loss_weights: [2.0, 0.25, 0.5]
+loss_args:
+  - temperature: 1.0
+    use_softmax_target: False
+  - k: 10
+  - dummy: 0
+
+tr_metrics: ['top1_ade', 'ranking_xent', 'min_ade_k', 'miss_rate_k', 'pi_bc']
+tr_metric_args:
+  - dummy: 0
+  - temperature: 1.0
+  - k: 10
+  - k: 10
+    dist_thresh: 2
+  - dummy: 0
+
+val_metrics: ['top1_ade', 'ranking_xent', 'min_ade_k', 'min_ade_k', 'miss_rate_k', 'miss_rate_k', 'pi_bc']
+val_metric_args:
+  - dummy: 0
+  - temperature: 1.0
+  - k: 5
+  - k: 10
+  - k: 5
+    dist_thresh: 2
+  - k: 10
+    dist_thresh: 2
+  - dummy: 0
+
+log_freq: 5
