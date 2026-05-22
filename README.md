@@ -145,7 +145,37 @@ overwritten only once.
 
 ---
 
-## 4. How to use
+## 4. Submission CSV format
+
+Per the [doScenes challenge spec](https://mi3-lab.github.io/doScenes_challenge#leaderboard),
+all submission CSVs use this header:
+
+    sample_token, instruction, x1, y1, x2, y2, ..., x12, y12
+
+The `instruction` column is **always present**, even for the no-language
+baseline. For the with-language submission it contains the doScenes
+instruction string the pipeline fed to the model (empty for the 23 scenes
+with no annotation). For the no-language ablation it is empty for every
+row.
+
+Both eval drivers in this repo
+([run_doscenes_test_text_conditioned.py](PGP_ego/run_doscenes_test_text_conditioned.py)
+and
+[run_doscenes_test_text_conditioned_no_language.py](PGP_ego/run_doscenes_test_text_conditioned_no_language.py))
+already emit submissions in this format. If you have a submission CSV from
+an older run without the column, you can fix it in place with
+[PGP_ego/add_instruction_column.py](PGP_ego/add_instruction_column.py):
+
+```bash
+python3 PGP_ego/add_instruction_column.py \
+    --test_root nuscenes_data/v1-test \
+    --ann_dir   /path/to/doScenes_repo/Annotations \
+    --in_csv    old_submission.csv \
+    --out_csv   new_submission.csv \
+    --used_language     # omit for the no-language ablation
+```
+
+## 5. How to use
 
 ### 4.1 Prerequisites
 
@@ -232,7 +262,7 @@ python3 PGP_ego/run_doscenes_test_text_conditioned_no_language.py \
 
 ---
 
-## 5. Architecture diagram
+## 6. Architecture diagram
 
 ```
  Inputs (Ego history, HD map, ZERO surrounding agents at test)
@@ -271,7 +301,7 @@ shapes which mode is decoded *and* which mode is ranked highest.
 
 ---
 
-## 6. Repository layout
+## 7. Repository layout
 
 ```
 .
@@ -306,7 +336,7 @@ shapes which mode is decoded *and* which mode is ranked highest.
 
 ---
 
-## 7. Citation
+## 8. Citation
 
 ```bibtex
 @misc{chowdhury2026pgpegonoagents,
@@ -351,13 +381,13 @@ Sister repos:
 
 ---
 
-## 8. License
+## 9. License
 
 MIT (inherits the upstream PGP license — see `PGP_ego/LICENSE`).
 
 ---
 
-## 9. Authors
+## 10. Authors
 
 - **Md Thamed Bin Zaman Chowdhury** — PhD Student, CECE, UCF
 - **Muhammad Shahbaz** — Post-Doctoral Scholar, UCF

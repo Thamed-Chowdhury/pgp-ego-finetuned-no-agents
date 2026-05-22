@@ -155,7 +155,11 @@ def main():
                 print(f'  infer batch {bi+1}/{len(dl)}  ({cursor}/{len(ds)})')
 
     os.makedirs(args.out_dir, exist_ok=True)
-    header = ['sample_token']
+    # doScenes submission spec format:
+    #     sample_token, instruction, x1, y1, ..., x12, y12
+    # This is the no-language ablation, so the instruction column is empty
+    # for every row.
+    header = ['sample_token', 'instruction']
     for i in range(1, FUTURE_LEN + 1):
         header += [f'x{i}', f'y{i}']
     rows = []
@@ -163,7 +167,7 @@ def main():
         if anchor_tok not in out:
             continue
         chal = pgp_to_challenge_frame(out[anchor_tok]['top_traj_pgp'])
-        row = [scene_tok]
+        row = [scene_tok, '']
         for x, y in chal:
             row.extend([f'{float(x):.6f}', f'{float(y):.6f}'])
         rows.append(row)

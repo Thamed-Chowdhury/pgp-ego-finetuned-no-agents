@@ -201,9 +201,14 @@ def stage_inference(cfg, helper, test_dir, checkpoint, text_lookup, text_dim,
     return out
 
 
-def stage_submission(out, scene_tuples, out_csv):
+def stage_submission(out, scene_tuples, out_csv, scene_to_instr=None):
+    """Write submission.csv in the official doScenes format:
+        sample_token, instruction, x1, y1, ..., x12, y12
+    `scene_to_instr` maps scene_token -> instruction string the pipeline
+    actually consumed (empty for unannotated scenes, and empty for every
+    row in the no-language ablation). If None, all instructions are empty."""
     os.makedirs(os.path.dirname(out_csv), exist_ok=True)
-    header = ['sample_token']
+    header = ['sample_token', 'instruction']
     for i in range(1, FUTURE_LEN + 1):
         header += [f'x{i}', f'y{i}']
     rows, missing = [], []
@@ -211,7 +216,8 @@ def stage_submission(out, scene_tuples, out_csv):
         if anchor_tok not in out:
             missing.append((anchor_tok, scene_tok)); continue
         chal = pgp_to_challenge_frame(out[anchor_tok]['top_traj_pgp'])
-        row = [scene_tok]
+        instr = '' if scene_to_instr is None else scene_to_instr.get(scene_tok, '')
+        row = [scene_tok, instr]
         for x, y in chal:
             row.extend([f'{float(x):.6f}', f'{float(y):.6f}'])
         rows.append(row)
@@ -297,7 +303,23 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, 'inference_cache.pkl'), 'wb') as f:
         pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
-    stage_submission(out, scene_tuples, os.path.join(args.out_dir, 'submission.csv'))
+    # Build scene_token -> instruction map so the submission CSV records the
+    # exact text the model consumed (instruction column is part of the
+    # doScenes submission spec).
+    nusc = helper.data
+    scene_to_instr = {}
+    with open(args.text_emb_pkl, 'rb') as f:
+        emb_cache = pickle.load(f)
+    s2i = emb_cache['scene_to_instruction']
+    for anchor_tok, scene_tok in scene_tuples:
+        scene = nusc.get('scene', scene_tok)
+        try:
+            scene_num = int(scene['name'].split('-')[1])
+        except Exception:
+            scene_num = -1
+        scene_to_instr[scene_tok] = s2i.get(scene_num, '')
+    stage_submission(out, scene_tuples, os.path.join(args.out_dir, 'submission.csv'),
+                     scene_to_instr=scene_to_instr)
     agg, _ = stage_self_eval(out, scene_tuples, helper, args.test_root,
                              args.doscenes_repo, os.path.join(args.out_dir, 'self_eval_metrics.json'))
 
