@@ -177,21 +177,70 @@ python3 PGP_ego/add_instruction_column.py \
 
 ## 5. How to use
 
-### 4.1 Prerequisites
+### 5.1 When is DSVT actually needed?
 
-- nuScenes v1.0-trainval (for training) and v1.0-test (for eval) at
-  `nuscenes_data/`.
-- A trained `lvm_ranked` stage-2 checkpoint to warm-start from (download from
-  [PGP-DSVT_ego_confidence_trained](https://github.com/Thamed-Chowdhury/PGP-DSVT_ego_confidence_trained)
-  or train it yourself).
-- For training: `pgp_ego_preprocessed_dsvt/` (1,832 ego windows, DSVT-injected
-  agents — produced by the prior submission's pipeline).
-- For inference: `pgp_ego_test_preprocessed/` (the no-agents test pickles).
-- A Gemini API key with access to `gemini-embedding-001` and (optionally)
-  `gemini-2.5-flash`. Put one or more keys, one per line, in
-  `PGP_ego/Gemini_keys.txt` (this file is **gitignored** in this repo).
+**Inference for the no-agents track does NOT use DSVT.** The shipped
+checkpoint reads `pgp_ego_test_preprocessed/` whose
+`surrounding_agent_representation` block is an all-zero tensor; the eval
+drivers ([run_doscenes_test_text_conditioned.py](PGP_ego/run_doscenes_test_text_conditioned.py)
+and [run_doscenes_test_text_conditioned_no_language.py](PGP_ego/run_doscenes_test_text_conditioned_no_language.py))
+import no DSVT module and make no DSVT call. Concretely, a no-agents
+v1.0-test pickle that this submission consumes:
 
-### 4.2 Python environment
+```
+surrounding_agent_representation.vehicles    : shape (78, 5, 5), all zeros
+surrounding_agent_representation.pedestrians : shape (74, 5, 5), all zeros
+```
+
+The model sees only ego history + HD map + the
+[gemini-embedding-001](https://ai.google.dev/gemini-api/docs/embeddings)
+text embedding.
+
+**Training did use DSVT**, transitively, through the warm-start chain:
+the stage-1 PGP non-ego pretrain and the stage-2 PGP-ego fine-tune both
+consumed `pgp_*_preprocessed_dsvt/` pickles (DSVT detections injected as
+surrounding agents). Stage 3 in this repo warm-starts from stage-2 best.tar
+and continues fine-tuning on the same DSVT-injected ego pickles. So the
+weights themselves were shaped by DSVT exposure during training, even though
+no DSVT data ever reaches the model at inference for the no-agents track.
+
+### 5.2 Prerequisites
+
+What you need depends on what you want to do:
+
+**(a) Reproduce the 2.6526 m result with the shipped stage-3 checkpoint
+(no DSVT setup required):**
+
+- nuScenes v1.0-test metadata + maps + LiDAR sweeps at `nuscenes_data/v1-test/`.
+  *(LiDAR is only needed for the dataset class's preprocessing pass; it is
+  never read at inference.)*
+- A trainval `stats.pickle` (upper-bound padding sizes; one is shipped with
+  any prior preprocessing run).
+- doScenes_repo for the official `compute_ego_metrics`.
+- A Gemini API key with access to `gemini-embedding-001`. Put one or more
+  keys, one per line, in `PGP_ego/Gemini_keys.txt` (this file is
+  **gitignored** in this repo).
+- This repo's `checkpoints/stage3_best.tar` and `doscenes_embeddings/doscenes_gemini_embeddings.pkl`.
+- **No DSVT install. No DSVT-injected pickles. No DSVT detector checkpoint.**
+
+**(b) Re-train stage 3 from a stage-2 LVMRanked checkpoint:**
+
+- All of (a), plus
+- A `lvm_ranked` stage-2 best.tar to warm-start from (the published one is
+  at [PGP-DSVT_ego_confidence_trained](https://github.com/Thamed-Chowdhury/PGP-DSVT_ego_confidence_trained/blob/main/checkpoints/stage2_best.tar)).
+- `pgp_ego_preprocessed_dsvt/` (1,832 ego windows with DSVT detections
+  injected as surrounding agents — produced by the prior submission's pipeline;
+  see [PGP-DSVT-ego_finetuned](https://github.com/Thamed-Chowdhury/PGP-DSVT-ego_finetuned)
+  for the DSVT injection scripts).
+
+**(c) Reproduce the entire pipeline from scratch (DSVT-injection upwards):**
+- All of (b), plus DSVT-pillar checkpoint, nuScenes v1.0-trainval, and the
+  injection / training infrastructure from the two sister repos.
+
+For most reviewers, **(a) is the only path that needs to be runnable**, and
+it has no DSVT dependency at all.
+
+### 5.3 Python environment
 
 | Package | Version |
 |---|---|
@@ -203,7 +252,7 @@ python3 PGP_ego/add_instruction_column.py \
 | pyquaternion | any recent |
 | scikit-learn | any recent |
 
-### 4.3 Embed doScenes instructions (once)
+### 5.4 Embed doScenes instructions (once)
 
 ```bash
 python3 PGP_ego/embed_doscenes_gemini.py \
@@ -216,7 +265,7 @@ Takes ~30 s for ~620 unique instructions (with key rotation). A copy of the
 output is already shipped at
 `doscenes_embeddings/doscenes_gemini_embeddings.pkl`.
 
-### 4.4 Train stage 3 (optional — checkpoint is shipped)
+### 5.5 Train stage 3 (optional — checkpoint is shipped)
 
 ```bash
 python3 PGP_ego/train.py \
@@ -229,7 +278,7 @@ python3 PGP_ego/train.py \
 
 ~30 s/epoch × 50 epochs ≈ 25 min on a single L4.
 
-### 4.5 Eval — with language
+### 5.6 Eval — with language
 
 ```bash
 python3 PGP_ego/run_doscenes_test_text_conditioned.py \
@@ -247,7 +296,7 @@ python3 PGP_ego/run_doscenes_test_text_conditioned.py \
 Writes `out_baseline_withlang/submission.csv` and
 `out_baseline_withlang/self_eval_metrics.json`. Expected ADE\@6s ≈ 2.65 m.
 
-### 4.6 Eval — without language (ablation)
+### 5.7 Eval — without language (ablation)
 
 ```bash
 python3 PGP_ego/run_doscenes_test_text_conditioned_no_language.py \
