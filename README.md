@@ -377,10 +377,21 @@ shapes which mode is decoded *and* which mode is ranked highest.
 │   └── doscenes_gemini_embeddings.pkl  ← gemini-embedding-001 cache (620 instructions × 768)
 ├── scripts/
 │   └── run_text_conditioned_test_evals.sh
-└── test_results/                 (per-variant submission.csv + self_eval_metrics.json)
-    ├── baseline/                  ← no agents at inference (the 2.6526 m result)
-    ├── dsvt_motion/
-    └── dsvt_presence/
+├── test_results/                 (per-variant submission.csv + self_eval_metrics.json)
+│   ├── baseline/                  ← no agents at inference (the 2.6526 m result)
+│   ├── dsvt_motion/
+│   └── dsvt_presence/
+└── Exp Deterministic PGP/        ← deterministic reproducer (seed=21 → ADE@6s = 2.6112 m)
+    ├── README.md
+    ├── run_final_deterministic.sh
+    ├── run_deterministic_inference.py
+    ├── seed_sweep_inproc.py
+    ├── checkpoints/stage3_best.tar
+    ├── configs/pgp_ego_gatx2_lvm_ranked_text_stage3.yml
+    ├── data/                      (stats.pickle + gemini-embedding-001 cache)
+    └── results/
+        ├── HEADLINE.json          ← machine-readable headline numbers
+        └── FINAL_seed_21/         ← canonical bit-identical submission
 ```
 
 ---
