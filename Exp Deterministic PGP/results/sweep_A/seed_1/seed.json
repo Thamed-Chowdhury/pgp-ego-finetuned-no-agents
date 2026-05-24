@@ -1,0 +1,6 @@
+{
+  "seed": 1,
+  "num_samples": 1000,
+  "batch_size": 4,
+  "checkpoint": "/teamspace/studios/this_studio/Exp Deterministic PGP/checkpoints/stage3_best.tar"
+}
